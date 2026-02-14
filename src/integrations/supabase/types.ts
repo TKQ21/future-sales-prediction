@@ -14,7 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      sales_data: {
+        Row: {
+          category: string | null
+          created_at: string
+          date: string
+          day_of_week: number | null
+          discount: number | null
+          holiday: boolean | null
+          id: string
+          inventory: number | null
+          month: number | null
+          price: number
+          product_id: string
+          product_name: string | null
+          promotion: boolean | null
+          region: string | null
+          sales: number
+          store_id: string
+          store_name: string | null
+          year: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          date: string
+          day_of_week?: number | null
+          discount?: number | null
+          holiday?: boolean | null
+          id?: string
+          inventory?: number | null
+          month?: number | null
+          price?: number
+          product_id: string
+          product_name?: string | null
+          promotion?: boolean | null
+          region?: string | null
+          sales?: number
+          store_id: string
+          store_name?: string | null
+          year?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          date?: string
+          day_of_week?: number | null
+          discount?: number | null
+          holiday?: boolean | null
+          id?: string
+          inventory?: number | null
+          month?: number | null
+          price?: number
+          product_id?: string
+          product_name?: string | null
+          promotion?: boolean | null
+          region?: string | null
+          sales?: number
+          store_id?: string
+          store_name?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

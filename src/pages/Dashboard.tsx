@@ -3,12 +3,13 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { DollarSign, ShoppingCart, TrendingUp, Package } from "lucide-react";
+import { DollarSign, ShoppingCart, TrendingUp, Package, Loader2 } from "lucide-react";
 import StatCard from "@/components/StatCard";
+import EmptyState from "@/components/EmptyState";
 import {
-  generateSalesData, aggregateByDate, aggregateByStore,
+  useSalesData, aggregateByDate, aggregateByStore,
   aggregateByCategory, aggregateByMonth,
-} from "@/lib/mock-data";
+} from "@/hooks/useSalesData";
 
 const CHART_COLORS = [
   "hsl(174, 72%, 40%)",
@@ -20,22 +21,53 @@ const CHART_COLORS = [
 ];
 
 export default function Dashboard() {
-  const rawData = useMemo(() => generateSalesData(365), []);
-  const dailyData = useMemo(() => aggregateByDate(rawData), [rawData]);
-  const monthlyData = useMemo(() => aggregateByMonth(rawData), [rawData]);
-  const storeData = useMemo(() => aggregateByStore(rawData), [rawData]);
-  const categoryData = useMemo(() => aggregateByCategory(rawData), [rawData]);
+  const { data: rawData, isLoading, error } = useSalesData();
+
+  const dailyData = useMemo(() => rawData ? aggregateByDate(rawData) : [], [rawData]);
+  const monthlyData = useMemo(() => rawData ? aggregateByMonth(rawData) : [], [rawData]);
+  const storeData = useMemo(() => rawData ? aggregateByStore(rawData) : [], [rawData]);
+  const categoryData = useMemo(() => rawData ? aggregateByCategory(rawData) : [], [rawData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="glass-card rounded-lg p-6 text-center text-destructive">
+          Failed to load data. Please try again.
+        </div>
+      </div>
+    );
+  }
+
+  if (!rawData || rawData.length === 0) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold tracking-tight mb-2">Sales Dashboard</h1>
+        <EmptyState />
+      </div>
+    );
+  }
 
   const totalSales = rawData.reduce((a, r) => a + r.sales, 0);
   const totalRevenue = rawData.reduce((a, r) => a + r.sales * r.price, 0);
-  const avgDaily = Math.round(totalSales / 365);
+  const numDays = dailyData.length || 1;
+  const avgDaily = Math.round(totalSales / numDays);
 
-  // Last 30 vs previous 30
   const last30 = dailyData.slice(-30).reduce((a, d) => a + d.sales, 0);
   const prev30 = dailyData.slice(-60, -30).reduce((a, d) => a + d.sales, 0);
-  const growthPct = ((last30 - prev30) / prev30 * 100).toFixed(1);
+  const growthPct = prev30 > 0 ? ((last30 - prev30) / prev30 * 100).toFixed(1) : "N/A";
 
-  const chartDaily = dailyData.slice(-90); // last 90 days
+  const uniqueProducts = new Set(rawData.map(r => r.product_id)).size;
+  const uniqueCategories = new Set(rawData.map(r => r.category).filter(Boolean)).size;
+
+  const chartDaily = dailyData.slice(-90);
 
   return (
     <div className="p-6 space-y-6">
@@ -46,20 +78,19 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Total Revenue"
-          value={`$${(totalRevenue / 1e6).toFixed(2)}M`}
-          change="+12.3% vs last year"
-          changeType="up"
+          value={totalRevenue >= 1e6 ? `$${(totalRevenue / 1e6).toFixed(2)}M` : `$${(totalRevenue / 1e3).toFixed(1)}k`}
+          change={growthPct !== "N/A" ? `${growthPct}% vs prev 30d` : ""}
+          changeType={growthPct !== "N/A" && Number(growthPct) >= 0 ? "up" : "down"}
           icon={DollarSign}
         />
         <StatCard
           label="Total Units Sold"
           value={totalSales.toLocaleString()}
-          change={`${growthPct}% vs prev 30d`}
-          changeType={Number(growthPct) >= 0 ? "up" : "down"}
+          change={`${numDays} days of data`}
+          changeType="neutral"
           icon={ShoppingCart}
         />
         <StatCard
@@ -71,14 +102,13 @@ export default function Dashboard() {
         />
         <StatCard
           label="Active Products"
-          value="6"
-          change="Across 6 categories"
+          value={String(uniqueProducts)}
+          change={`Across ${uniqueCategories} categories`}
           changeType="neutral"
           icon={Package}
         />
       </div>
 
-      {/* Sales Trend */}
       <div className="glass-card rounded-lg p-5">
         <h2 className="text-sm font-semibold mb-4">Daily Sales Trend (Last 90 Days)</h2>
         <div className="h-72">
@@ -91,107 +121,48 @@ export default function Dashboard() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 90%)" strokeOpacity={0.3} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v) => v.slice(5)}
-                stroke="hsl(220, 10%, 50%)"
-              />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} stroke="hsl(220, 10%, 50%)" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 50%)" />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(220, 22%, 10%)",
-                  border: "1px solid hsl(220, 20%, 16%)",
-                  borderRadius: "8px",
-                  color: "hsl(220, 10%, 90%)",
-                  fontSize: 12,
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="sales"
-                stroke="hsl(174, 72%, 40%)"
-                strokeWidth={2}
-                fill="url(#salesGrad)"
-              />
+              <Tooltip contentStyle={{ background: "hsl(220, 22%, 10%)", border: "1px solid hsl(220, 20%, 16%)", borderRadius: "8px", color: "hsl(220, 10%, 90%)", fontSize: 12 }} />
+              <Area type="monotone" dataKey="sales" stroke="hsl(174, 72%, 40%)" strokeWidth={2} fill="url(#salesGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Revenue */}
         <div className="glass-card rounded-lg p-5">
           <h2 className="text-sm font-semibold mb-4">Monthly Revenue</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 90%)" strokeOpacity={0.3} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(v) => v.slice(5)}
-                  stroke="hsl(220, 10%, 50%)"
-                />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(220, 10%, 50%)"
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(220, 22%, 10%)",
-                    border: "1px solid hsl(220, 20%, 16%)",
-                    borderRadius: "8px",
-                    color: "hsl(220, 10%, 90%)",
-                    fontSize: 12,
-                  }}
-                  formatter={(v: number) => [`$${v.toLocaleString()}`, "Revenue"]}
-                />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} stroke="hsl(220, 10%, 50%)" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 50%)" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip contentStyle={{ background: "hsl(220, 22%, 10%)", border: "1px solid hsl(220, 20%, 16%)", borderRadius: "8px", color: "hsl(220, 10%, 90%)", fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, "Revenue"]} />
                 <Bar dataKey="revenue" fill="hsl(174, 72%, 40%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Category Distribution */}
         <div className="glass-card rounded-lg p-5">
           <h2 className="text-sm font-semibold mb-4">Sales by Category</h2>
           <div className="h-64 flex items-center">
             <ResponsiveContainer width="50%" height="100%">
               <PieChart>
-                <Pie
-                  data={categoryData}
-                  dataKey="sales"
-                  nameKey="category"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={3}
-                >
+                <Pie data={categoryData} dataKey="sales" nameKey="category" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
                   {categoryData.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(220, 22%, 10%)",
-                    border: "1px solid hsl(220, 20%, 16%)",
-                    borderRadius: "8px",
-                    color: "hsl(220, 10%, 90%)",
-                    fontSize: 12,
-                  }}
-                />
+                <Tooltip contentStyle={{ background: "hsl(220, 22%, 10%)", border: "1px solid hsl(220, 20%, 16%)", borderRadius: "8px", color: "hsl(220, 10%, 90%)", fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2 flex-1">
               {categoryData.map((c, i) => (
                 <div key={c.category} className="flex items-center gap-2 text-sm">
-                  <div
-                    className="w-3 h-3 rounded-sm shrink-0"
-                    style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
-                  />
+                  <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                   <span className="text-muted-foreground">{c.category}</span>
                   <span className="ml-auto font-mono text-xs">{c.sales.toLocaleString()}</span>
                 </div>
@@ -201,7 +172,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Store Performance Table */}
       <div className="glass-card rounded-lg p-5">
         <h2 className="text-sm font-semibold mb-4">Store Performance</h2>
         <div className="overflow-x-auto">
@@ -222,9 +192,7 @@ export default function Dashboard() {
                   <td className="py-2.5 px-3 text-muted-foreground">{s.region}</td>
                   <td className="py-2.5 px-3 text-right font-mono">{s.sales.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right font-mono">${(s.revenue / 1000).toFixed(1)}k</td>
-                  <td className="py-2.5 px-3 text-right font-mono">
-                    ${(s.revenue / s.sales).toFixed(2)}
-                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono">${(s.revenue / s.sales).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
