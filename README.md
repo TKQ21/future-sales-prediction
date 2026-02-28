@@ -6,7 +6,9 @@ This project is a production-style end-to-end Sales Forecasting System built to 
 
 The platform allows users to upload historical sales data, train multiple forecasting models, and generate future demand predictions with performance evaluation and visualization.
 
-project link : https://future-sales-prediction.lovable.app/
+project link : https://ai-sales-forecasting.lovable.app
+
+https://future-sales-prediction.lovable.app/
 
 🎯 Business Problem
 
