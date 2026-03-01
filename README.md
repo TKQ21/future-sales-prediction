@@ -8,7 +8,7 @@ The platform allows users to upload historical sales data, train multiple foreca
 
 project link : https://ai-sales-forecasting.lovable.app
 
-https://future-sales-prediction.lovable.app/
+https://neon-pulse-retail.lovable.app
 
 🎯 Business Problem
 
